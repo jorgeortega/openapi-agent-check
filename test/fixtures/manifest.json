@@ -1,0 +1,30 @@
+{
+  "rulesVersion": "1.0.3",
+  "cases": [
+    "collided-names",
+    "good",
+    "integral-floats",
+    "no-operations",
+    "non-ascii",
+    "openapi-3-0",
+    "orders-thin",
+    "passthrough-origin",
+    "rule-descriptions",
+    "rule-enums",
+    "rule-error-responses",
+    "rule-examples",
+    "rule-idempotency",
+    "rule-json-bodies",
+    "rule-operation-ids",
+    "rule-pagination",
+    "rule-parameter-descriptions",
+    "rule-response-schemas",
+    "rule-security",
+    "rule-summaries",
+    "rule-tool-count",
+    "security-empty",
+    "tool-count-41",
+    "yaml-input"
+  ],
+  "sha256": "582f2bfc8c0637e317c081408103dca68fbc3a100571ec64e80213f0c0597f28"
+}
