@@ -5,7 +5,7 @@ OpenAPI 3.0 or 3.1 spec and scores it from 0 to 100 against 13 rules. Each
 rule covers something a model gets wrong when the spec leaves it out, such as
 a missing operationId, a vague description or an undocumented error.
 
-<!-- The demo GIF goes here once it's recorded: `vhs docs/demo.tape` writes docs/demo.gif, then add ![openapi-agent-check scoring and fixing a spec](docs/demo.gif) -->
+![openapi-agent-check scoring a spec at 54/100, writing the rules-only fixes with --fix, and scoring the fixed copy at 96/100](docs/demo.gif)
 
 ```sh
 npx openapi-agent-check ./openapi.json
