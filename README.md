@@ -154,6 +154,43 @@ npx openapi-agent-check openapi.yaml --badge
 
 Both are green at 80 or more, yellow from 50 to 79 and red below 50.
 
+## With Spectral
+
+If you already lint your spec with [Spectral](https://github.com/stoplightio/spectral),
+add the rules to your `.spectral.yaml`:
+
+```sh
+npm install --save-dev openapi-agent-check
+```
+
+```yaml
+extends:
+  - spectral:oas
+  - openapi-agent-check/spectral
+```
+
+```
+$ npx spectral lint openapi.json
+ 61:14    error  agent-ready-operation-ids    POST /v1/orders: no operationId        paths./v1/orders.post
+ 61:14  warning  agent-ready-idempotency      POST /v1/orders: no Idempotency-Key    paths./v1/orders.post
+```
+
+Each of the 13 rules is a Spectral rule named `agent-ready-<rule>`, running
+the same code as the CLI, so Spectral finds exactly what the CLI finds, each
+at the operation or parameter it's about. The rules weighted 8 or more
+(`operation-ids`, `descriptions`, `summaries`, `parameter-descriptions`,
+`response-schemas`, `security`) are errors; the rest are warnings. Change a
+rule's severity in your `.spectral.yaml` as with any other ruleset:
+
+```yaml
+rules:
+  agent-ready-idempotency: off
+```
+
+Spectral reports findings, not the 0-100 score; run the CLI for that.
+`@stoplight/spectral-core` is an optional peer dependency: the CLI doesn't
+need it.
+
 ## As a library
 
 ```ts

@@ -25,6 +25,11 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./spectral": {
+      "types": "./dist/spectral.d.ts",
+      "import": "./dist/spectral.js",
+      "default": "./dist/spectral.js"
     }
   },
   "types": "./dist/index.d.ts",
@@ -49,7 +54,17 @@
   "dependencies": {
     "yaml": "^2.9.1"
   },
+  "peerDependencies": {
+    "@stoplight/spectral-core": "^1.18.0"
+  },
+  "peerDependenciesMeta": {
+    "@stoplight/spectral-core": {
+      "optional": true
+    }
+  },
   "devDependencies": {
+    "@stoplight/spectral-core": "^1.24.0",
+    "@stoplight/spectral-parsers": "^1.0.5",
     "@types/node": "^22.19.0",
     "typescript": "^5.9.3",
     "vitest": "^3.2.4"
