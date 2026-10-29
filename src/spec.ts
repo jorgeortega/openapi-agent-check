@@ -16,6 +16,8 @@ export interface LoadedSpec {
   doc?: Json;
   /** The file path or the URL the document came from (after redirects). */
   source?: string;
+  /** The document as read, for writing a fixed copy in the same format. */
+  text?: string;
   error?: string;
 }
 
@@ -79,5 +81,5 @@ export async function loadSpec(input: string, fetcher: typeof fetch = fetch): Pr
   const parsed = parseSpecText(read.text!);
   if (parsed.error) return { error: parsed.error };
   const problem = specProblem(parsed.doc!);
-  return problem ? { error: problem } : { doc: parsed.doc, source: read.source };
+  return problem ? { error: problem } : { doc: parsed.doc, source: read.source, text: read.text };
 }

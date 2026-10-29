@@ -1,6 +1,6 @@
 /**
  * openapi-agent-check: how well AI agents will use your API, from its
- * OpenAPI 3.0/3.1 spec, scored 0–100 over 13 rules.
+ * OpenAPI 3.0/3.1 spec, scored 0–100 over 13 rules, and the rules-only fixes.
  */
 import type { Manifest } from "./manifest.js";
 import { type ReadinessReport, readiness } from "./rules.js";
@@ -9,6 +9,9 @@ import { loadSpec } from "./spec.js";
 export { formatReport, readiness, type Finding, type ReadinessReport, type RuleResult } from "./rules.js";
 export { loadSpec, parseSpecText, specProblem, type LoadedSpec } from "./spec.js";
 export type { Manifest, ManifestTool } from "./manifest.js";
+export { fix, fixedText, type FixResult } from "./fix.js";
+export { applyPatch, jsonPatch, type PatchOp } from "./json-patch.js";
+export { badge, badgeColor, BADGE_LINK } from "./badge.js";
 
 /** The version of the rules: a report's score only changes when this does. */
 export const RULES_VERSION = "1.0.3";
