@@ -1,0 +1,96 @@
+name: action-test
+# Runs this repository's Action (action.yml) on a fixture, with the package built from this commit.
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  comment:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+          cache: npm
+      - id: pkg
+        run: |
+          npm ci
+          npm run build
+          npm pack --pack-destination "$RUNNER_TEMP"
+          echo "version=file:$(ls "$RUNNER_TEMP"/openapi-agent-check-*.tgz)" >> "$GITHUB_OUTPUT"
+
+      - id: first
+        uses: ./
+        with:
+          spec: test/fixtures/cases/orders-thin/openapi.json
+          version: ${{ steps.pkg.outputs.version }}
+          suggest-fixes: "true"
+      # A second run updates the comment instead of adding another.
+      - id: second
+        uses: ./
+        with:
+          spec: test/fixtures/cases/orders-thin/openapi.json
+          version: ${{ steps.pkg.outputs.version }}
+
+      - name: The outputs are the score and the fixed spec
+        env:
+          SCORE: ${{ steps.first.outputs.score }}
+          FIXED: ${{ steps.first.outputs.fixed-spec }}
+        run: |
+          test "$SCORE" = "54"
+          test "$FIXED" = "test/fixtures/cases/orders-thin/openapi.fixed.json"
+          test -s "$FIXED"
+      - name: There's one comment on the pull request, and it has the score
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          gh api --paginate "repos/$GITHUB_REPOSITORY/issues/$PR/comments" \
+            --jq '.[] | select(.body | startswith("<!-- openapi-agent-check -->")) | .body' > comments.txt
+          test "$(grep -c '^<!-- openapi-agent-check -->' comments.txt)" = "1"
+          grep -q '^### Agent readiness: 54/100' comments.txt
+          grep -q 'against `' comments.txt
+
+  min-score:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+          cache: npm
+      - id: pkg
+        run: |
+          npm ci
+          npm run build
+          npm pack --pack-destination "$RUNNER_TEMP"
+          echo "version=file:$(ls "$RUNNER_TEMP"/openapi-agent-check-*.tgz)" >> "$GITHUB_OUTPUT"
+
+      - id: below
+        continue-on-error: true
+        uses: ./
+        with:
+          spec: test/fixtures/cases/orders-thin/openapi.json
+          version: ${{ steps.pkg.outputs.version }}
+          min-score: "90"
+          comment: "false"
+      - name: A score under min-score fails the step
+        env:
+          OUTCOME: ${{ steps.below.outcome }}
+        run: test "$OUTCOME" = "failure"
+      - uses: ./
+        with:
+          spec: test/fixtures/cases/good/openapi.json
+          version: ${{ steps.pkg.outputs.version }}
+          min-score: "100"
+          comment: "false"

@@ -122,6 +122,53 @@ Actions and most CI services do).
 - run: npx openapi-agent-check openapi.yaml --min 80
 ```
 
+## GitHub Action
+
+The Action scores your spec on every push and pull request. On a pull
+request it posts one comment with the score, its change against the base
+branch and the top three findings, and updates that same comment on each
+run.
+
+```yaml
+name: agent-readiness
+on: pull_request
+permissions:
+  contents: read
+  pull-requests: write # only for the comment
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jorgeortega/openapi-agent-check@v1
+        with:
+          spec: openapi.yaml
+          min-score: 80
+```
+
+| Input | Default | |
+|---|---|---|
+| `spec` | (required) | The spec's path in the repository, or its https URL |
+| `min-score` | none: report only | Fail the job when the score is below this |
+| `comment` | `true` | Comment on pull requests (needs `pull-requests: write`) |
+| `suggest-fixes` | `false` | Also write the rules-only fixes to `<name>.fixed.<ext>` next to the spec |
+| `version` | the release's own | The `openapi-agent-check` version to run |
+
+Outputs: `score`, `base-score` and `fixed-spec`.
+
+With `suggest-fixes: true`, the fixed spec is written into the job's
+workspace, and the comment and the job summary say how to apply it:
+run `npx openapi-agent-check <spec> --fix --write` and commit the result.
+The Action doesn't push commits or post review suggestions: what to change
+in your spec stays your call. A later step can upload or commit
+`steps.<id>.outputs.fixed-spec` if you want it to.
+
+The Action runs the pinned version from npm with `npx`. It needs no secrets,
+and it sends nothing anywhere: the score is computed in the job and the only
+API it calls is GitHub's, for the comment. A pull request from a fork gets a
+read-only token, so the comment is skipped with a warning and the check still
+runs.
+
 ## Badge
 
 `--badge` prints a Markdown badge for your README. Which one depends on
