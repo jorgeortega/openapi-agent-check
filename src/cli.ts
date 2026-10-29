@@ -8,7 +8,7 @@
  */
 import { readFileSync, writeFileSync } from "node:fs";
 import { basename, dirname, extname, join } from "node:path";
-import { RULES_VERSION, badge, check, fix, fixedText, formatReport, loadSpec } from "./index.js";
+import { RULES_VERSION, badge, check, liveBadge, fix, fixedText, formatReport, loadSpec } from "./index.js";
 
 const USAGE = `Usage: openapi-agent-check <openapi.json|openapi.yaml|https://…> [options]
 
@@ -19,7 +19,7 @@ Options:
   --quiet        print only the score line
   --min <score>  exit with code 1 when the score is below <score> (for CI)
   --max <n>      findings to show per rule (default 5)
-  --badge        print a Markdown badge for the score
+  --badge        print a Markdown badge: live for an https URL, today's score for a file
   --fix          write the fixed spec to <name>.fixed.<ext> (rules only, no model)
   --fix --write  overwrite the input file with the fixed spec
   --fix --patch  print the fixes as a JSON Patch (RFC 6902) instead
@@ -143,7 +143,9 @@ export async function run(argv: string[], opts: RunOptions = {}): Promise<CliRes
   const stdout = json
     ? JSON.stringify({ source: result.source, rulesVersion: RULES_VERSION, ...report }, null, 2)
     : showBadge
-      ? badge(report.score)
+      ? /^https:\/\//i.test(args[0]!)
+        ? liveBadge(args[0]!)
+        : badge(report.score)
       : quiet
         ? `Agent readiness: ${report.score}/100`
         : formatReport(report, { color: opts.color, max }) + pointer;

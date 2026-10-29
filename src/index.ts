@@ -11,7 +11,7 @@ export { loadSpec, parseSpecText, specProblem, type LoadedSpec } from "./spec.js
 export type { Manifest, ManifestTool } from "./manifest.js";
 export { fix, fixedText, type FixResult } from "./fix.js";
 export { applyPatch, jsonPatch, type PatchOp } from "./json-patch.js";
-export { badge, badgeColor, BADGE_LINK } from "./badge.js";
+export { badge, badgeColor, liveBadge, BADGE_LINK, LIVE_BADGE_ENDPOINT, LIVE_BADGE_PAGE } from "./badge.js";
 
 /** The version of the rules: a report's score only changes when this does. */
 export const RULES_VERSION = "1.0.4";

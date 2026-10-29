@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { parse as parseYaml } from "yaml";
 import { POINTER_LINE, run } from "../src/cli.js";
-import { applyPatch } from "../src/index.js";
+import { applyPatch, badgeColor, liveBadge } from "../src/index.js";
 
 const fixture = (name: string, file = "openapi.json") => fileURLToPath(new URL(`./fixtures/cases/${name}/${file}`, import.meta.url));
 
@@ -164,6 +164,34 @@ describe("the CLI's --fix", () => {
     }
     expect((await run(["https://api.example.com/openapi.json", "--fix", "--write"])).stderr).toMatch(/not a URL/);
     expect((await run(["does-not-exist.json", "--fix"])).code).toBe(2);
+  });
+
+  describe("--badge", () => {
+    it("prints a static badge for a file", async () => {
+      const result = await run([fixture("good"), "--badge"]);
+      expect(result.stdout).toBe("[![agent-ready](https://img.shields.io/badge/agent--ready-100%2F100-green)](https://latitude10.tech/agent-readiness)");
+    });
+
+    it("prints the live badge for an https URL", async () => {
+      const spec = readFileSync(fixture("good"), "utf8");
+      const fetcher = (async () => new Response(spec, { status: 200 })) as typeof fetch;
+      const url = "https://api.example.com/v1/openapi.json?v=2&x=a b";
+      const result = await run([url, "--badge"], { fetcher });
+      const e2 = encodeURIComponent(url);
+      const e1 = encodeURIComponent(`https://latitude10.tech/api/readiness/badge?url=${e2}`);
+      expect(result.stdout).toBe(`[![agent-ready](https://img.shields.io/endpoint?url=${e1})](https://latitude10.tech/agent-readiness/check?url=${e2})`);
+      expect(result.stdout).toBe(liveBadge(url));
+    });
+
+    it("keeps the static badge for a plain http URL", async () => {
+      const spec = readFileSync(fixture("good"), "utf8");
+      const fetcher = (async () => new Response(spec, { status: 200 })) as typeof fetch;
+      expect((await run(["http://localhost:3000/openapi.json", "--badge"], { fetcher })).stdout).toContain("img.shields.io/badge/");
+    });
+
+    it("colours by score: green from 80, yellow from 50, red below", () => {
+      expect([100, 80, 79, 50, 49, 0].map(badgeColor)).toEqual(["green", "green", "yellow", "yellow", "red", "red"]);
+    });
   });
 
   describe("the pointer line", () => {

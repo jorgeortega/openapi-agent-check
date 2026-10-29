@@ -99,7 +99,7 @@ at all costs a lot.
 | `--quiet` | Print only the score line, `Agent readiness: 87/100` |
 | `--min <score>` | Exit with code 1 if the score is below `<score>` |
 | `--max <n>` | Show up to `n` findings per rule (default 5) |
-| `--badge` | Print a Markdown badge for the score |
+| `--badge` | Print a Markdown badge: live for an https URL, static for a file |
 | `--fix` | Write the fixed spec to `<name>.fixed.<ext>` |
 | `--fix --write` | Overwrite the input file with the fixed spec |
 | `--fix --patch` | Print the fixes as a JSON Patch instead |
@@ -124,7 +124,25 @@ Actions and most CI services do).
 
 ## Badge
 
-`--badge` prints a Markdown badge with the score for your README:
+`--badge` prints a Markdown badge for your README. Which one depends on
+where the spec is.
+
+**A spec at a public https URL gets the live badge.** It follows the spec:
+shields.io asks latitude10.tech for the score, which scores the spec with
+these same rules and keeps the result for a day. It links to a free page
+with the score and each rule's findings for that URL.
+
+```sh
+npx openapi-agent-check https://api.example.com/openapi.json --badge
+```
+
+```md
+[![agent-ready](https://img.shields.io/endpoint?url=https%3A%2F%2Flatitude10.tech%2Fapi%2Freadiness%2Fbadge%3Furl%3Dhttps%253A%252F%252Fapi.example.com%252Fopenapi.json)](https://latitude10.tech/agent-readiness/check?url=https%3A%2F%2Fapi.example.com%2Fopenapi.json)
+```
+
+**A file gets a static badge** with today's score. Nothing is fetched to
+show it, and nothing about your spec leaves your machine; rerun the command
+(in CI, say) when the score changes.
 
 ```sh
 npx openapi-agent-check openapi.yaml --badge
@@ -134,9 +152,7 @@ npx openapi-agent-check openapi.yaml --badge
 [![agent-ready](https://img.shields.io/badge/agent--ready-87%2F100-green)](https://latitude10.tech/agent-readiness)
 ```
 
-It's green at 80 or more, yellow from 50 to 79 and red below 50. It's a
-static shields.io badge: rerun the command (in CI, say) when the score
-changes.
+Both are green at 80 or more, yellow from 50 to 79 and red below 50.
 
 ## As a library
 
@@ -158,7 +174,8 @@ const { scoreBefore, scoreAfter, patch, fixed } = fix(doc!);
 an `id`, `title`, `weight`, `applicable`, `passing`, `share`, `fix` and its
 `findings`. Each finding has a `where` (`"METHOD /path"` or a parameter) and a
 `message`. `fix` also returns `operations`, the number of operations it
-changed; `badge(score)` returns the badge's Markdown.
+changed; `badge(score)` returns the static badge's Markdown and
+`liveBadge(specUrl)` the live one.
 
 ## Conformance fixtures
 
