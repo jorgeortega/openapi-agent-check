@@ -1,6 +1,6 @@
 {
   "name": "openapi-agent-check",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Score how well AI agents will use your API, 0-100, from its OpenAPI 3.0/3.1 spec: 13 rules for operationIds, descriptions, parameters, examples, schemas, errors, pagination, auth, idempotency and tool count. --fix writes the rules-only fixes into your spec.",
   "keywords": [
     "openapi",

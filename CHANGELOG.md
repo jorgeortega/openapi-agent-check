@@ -1,5 +1,29 @@
 # Changelog
 
+## 1.2.0 (2026-10-29)
+
+- **Rules 1.0.4.** A `$ref`'s pointer segments are percent-decoded before
+  `~1` and `~0` are unescaped (RFC 6901 §6), so `#/paths/~1orders~1%7Bid%7D`
+  resolves; a `$ref` that leads nowhere counts as no example instead of
+  failing. Scores move only for specs with percent-encoded or dangling
+  `$ref`s. Two new conformance cases (26 in all): `percent-encoded-refs` and
+  `dangling-ref`. The hosted check and the Agentify kits already run 1.0.4.
+- **A live badge.** `--badge` with an https spec URL prints a shields.io
+  endpoint badge that follows the spec, linked to the free check page for that
+  URL. A file keeps the static badge. Library: `liveBadge(specUrl)`.
+- **A Spectral ruleset**, `openapi-agent-check/spectral`: the 13 rules as
+  `agent-ready-<rule>`, with the CLI's findings at their operation or
+  parameter; rules weighted 8 or more are errors, the rest warnings.
+  `@stoplight/spectral-core` is an optional peer dependency.
+- **A GitHub Action** (`uses: jorgeortega/openapi-agent-check@v1`): scores
+  the spec, comments the score, its change against the base branch and the
+  top three findings on pull requests (one comment, updated), fails under
+  `min-score`, and can write the fixed spec (`suggest-fixes`).
+- `--quiet` prints only the score line.
+- After a report, one line says what comes next (`npx openapi-agentify
+  init`). It's left out with `--json`, `--quiet`, `--badge` and in CI.
+- CONTRIBUTING.md, issue and pull request templates.
+
 ## 1.1.0 (2026-10-29)
 
 - `--fix` writes the rules-only fixes into `<name>.fixed.<ext>`, in the
