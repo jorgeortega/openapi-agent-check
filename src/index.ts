@@ -14,7 +14,7 @@ export { applyPatch, jsonPatch, type PatchOp } from "./json-patch.js";
 export { badge, badgeColor, BADGE_LINK } from "./badge.js";
 
 /** The version of the rules: a report's score only changes when this does. */
-export const RULES_VERSION = "1.0.3";
+export const RULES_VERSION = "1.0.4";
 
 export interface CheckOptions {
   /** An Agentify tool list (agentify.tools.json); its accepted suggestions count. */

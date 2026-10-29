@@ -156,8 +156,8 @@ changed; `badge(score)` returns the badge's Markdown.
 
 ## Conformance fixtures
 
-The rules version is `1.0.3`. Scores only change when the rules version
-changes. `test/fixtures/` holds 24 OpenAPI documents with the exact report
+The rules version is `1.0.4`. Scores only change when the rules version
+changes. `test/fixtures/` holds 26 OpenAPI documents with the exact report
 each one must produce, plus a SHA-256 manifest so nobody can quietly edit
 them. If you port the rules to another language, your port conforms when it
 reproduces every `expected.json`. See [test/fixtures/README.md](test/fixtures/README.md).

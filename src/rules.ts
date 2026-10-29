@@ -1,9 +1,9 @@
 /**
  * The 13 readiness rules and the 0-100 score: what a model will get wrong
- * about your API. Rules version 1.0.3, the same rules the Agentify API kit's
+ * about your API. Rules version 1.0.4, the same rules the Agentify API kit's
  * `agentify check` and the hosted check at latitude10.tech/agent-readiness run.
  */
-import { importOpenApi } from "./convert.js";
+import { importOpenApi, pointerSegment } from "./convert.js";
 import type { Manifest } from "./manifest.js";
 import { mergeSuggestions } from "./suggestions.js";
 
@@ -63,7 +63,7 @@ const PAGE_PARAMS = /^(limit|per_page|perPage|page_size|pageSize|first|last|curs
 function deref(doc: Json, v: any, depth = 0): any {
   if (depth > 10 || !v || typeof v !== "object" || typeof v.$ref !== "string" || !v.$ref.startsWith("#/")) return v;
   let cur: any = doc;
-  for (const p of v.$ref.slice(2).split("/")) cur = cur?.[p.replace(/~1/g, "/").replace(/~0/g, "~")];
+  for (const p of v.$ref.slice(2).split("/")) cur = cur?.[pointerSegment(p)];
   return deref(doc, cur, depth + 1);
 }
 
@@ -95,6 +95,8 @@ function jsonContent(doc: Json, content: Json | undefined): Json | null {
 const hasExample = (doc: Json, x: any, depth = 0): boolean => {
   if (!x || typeof x !== "object" || depth > 6) return false;
   const s = deref(doc, x);
+  // A $ref that leads nowhere has no example.
+  if (!s || typeof s !== "object") return false;
   if (s.example !== undefined || (Array.isArray(s.examples) ? s.examples.length > 0 : s.examples && Object.keys(s.examples).length > 0)) return true;
   if (s.schema && hasExample(doc, s.schema, depth + 1)) return true;
   for (const p of Object.values((s.properties ?? {}) as Json)) if (hasExample(doc, p, depth + 1)) return true;

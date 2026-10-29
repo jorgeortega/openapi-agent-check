@@ -34,7 +34,7 @@ describe("the CLI", () => {
     const result = await run([fixture("good"), "--json"]);
     const report = JSON.parse(result.stdout);
     expect(report.score).toBe(100);
-    expect(report.rulesVersion).toBe("1.0.3");
+    expect(report.rulesVersion).toBe("1.0.4");
     expect(report.rules).toHaveLength(13);
   });
 
@@ -71,7 +71,8 @@ describe("the CLI", () => {
 
   it("prints help and versions", async () => {
     expect((await run(["--help"])).stdout).toContain("Usage: openapi-agent-check");
-    expect((await run(["--version"])).stdout).toMatch(/^openapi-agent-check 1\.1\.0 \(rules 1\.0\.3\)$/);
+    const { version } = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
+    expect((await run(["--version"])).stdout).toBe(`openapi-agent-check ${version} (rules 1.0.4)`);
   });
 
   it("prints a badge with --badge", async () => {
