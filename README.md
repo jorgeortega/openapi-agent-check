@@ -27,6 +27,42 @@ Gateway. The checker runs locally, needs no account and sends nothing
 anywhere. The only network request it makes is to fetch the spec, when you
 give it a URL.
 
+## Fix it
+
+`--fix` writes the fixes into a copy of your spec. It's free, runs locally and
+calls no model: the fixes come from the same rules as the score.
+
+```sh
+npx openapi-agent-check openapi.yaml --fix            # writes openapi.fixed.yaml
+npx openapi-agent-check openapi.yaml --fix --write    # overwrites openapi.yaml
+npx openapi-agent-check openapi.yaml --fix --patch    # prints a JSON Patch (RFC 6902)
+```
+
+```
+$ npx openapi-agent-check openapi.json --fix
+Agent readiness: 54/100 → 96/100, 4 operations changed.
+Wrote openapi.fixed.json
+```
+
+For each operation, `--fix` adds what the rules found missing, and leaves
+alone what you wrote:
+
+- an operationId made from the method and path (`GET /v1/orders` → `listOrders`);
+- a summary and a description (`Lists orders, filtered and paged with status,
+  limit, cursor. Use it to find orders before acting on one.`);
+- parameter descriptions, with the allowed values when the schema lists them;
+- an example made from the schemas, as `x-agentify-examples`;
+- an `Idempotency-Key` header on POST and PATCH.
+
+It can't invent what only you know: error responses, pagination, response
+schemas or your auth. Those stay as findings, each with its one-line fix.
+Read the generated text before you publish it; it's a starting point.
+
+The fixed spec is in the same format as the input. JSON keeps its indent.
+YAML keeps its key order, and comments are kept where possible, but some may
+be lost; use `--patch` if you'd rather apply the changes yourself. With a URL,
+`--fix` writes the fixed copy to the current directory.
+
 ## The rules
 
 | Rule | Weight | What passes |
@@ -62,13 +98,17 @@ at all costs a lot.
 | `--json` | Print the full report as JSON: every rule, every finding |
 | `--min <score>` | Exit with code 1 if the score is below `<score>` |
 | `--max <n>` | Show up to `n` findings per rule (default 5) |
+| `--badge` | Print a Markdown badge for the score |
+| `--fix` | Write the fixed spec to `<name>.fixed.<ext>` |
+| `--fix --write` | Overwrite the input file with the fixed spec |
+| `--fix --patch` | Print the fixes as a JSON Patch instead |
 | `--version` | Print the package version and the rules version |
 
 Exit codes:
 
-- `0`: the spec was scored and met `--min`.
+- `0`: the spec was scored and met `--min`, or fixed.
 - `1`: the score is below `--min`.
-- `2`: the spec couldn't be read, or the arguments are wrong.
+- `2`: the spec couldn't be read or written, or the arguments are wrong.
 
 ### In CI
 
@@ -76,10 +116,26 @@ Exit codes:
 - run: npx openapi-agent-check openapi.yaml --min 80
 ```
 
+## Badge
+
+`--badge` prints a Markdown badge with the score for your README:
+
+```sh
+npx openapi-agent-check openapi.yaml --badge
+```
+
+```md
+[![agent-ready](https://img.shields.io/badge/agent--ready-87%2F100-green)](https://latitude10.tech/agent-readiness)
+```
+
+It's green at 80 or more, yellow from 50 to 79 and red below 50. It's a
+static shields.io badge: rerun the command (in CI, say) when the score
+changes.
+
 ## As a library
 
 ```ts
-import { check, readiness, parseSpecText } from "openapi-agent-check";
+import { check, fix, readiness, parseSpecText } from "openapi-agent-check";
 
 const { report, error } = await check("https://api.example.com/openapi.json");
 if (report) console.log(report.score, report.rules.filter((r) => r.share < 1));
@@ -87,12 +143,16 @@ if (report) console.log(report.score, report.rules.filter((r) => r.share < 1));
 // Or with a document you already have:
 const { doc } = parseSpecText(yamlOrJsonText);
 const result = readiness(doc!);
+
+// The rules-only fixes, as the fixed document and as a JSON Patch:
+const { scoreBefore, scoreAfter, patch, fixed } = fix(doc!);
 ```
 
 `report` contains `score`, `operations`, `rules` and `warnings`. Each rule has
 an `id`, `title`, `weight`, `applicable`, `passing`, `share`, `fix` and its
 `findings`. Each finding has a `where` (`"METHOD /path"` or a parameter) and a
-`message`.
+`message`. `fix` also returns `operations`, the number of operations it
+changed; `badge(score)` returns the badge's Markdown.
 
 ## Conformance fixtures
 
@@ -116,17 +176,12 @@ extensions on operations, and an Agentify tool list (`agentify.tools.json`,
 the `manifest` option). This keeps its score identical to the Agentify kits'.
 Plain OpenAPI specs need neither.
 
-## Fixing what it finds
+## Who maintains it
 
-Every failing rule prints a one-line fix. To get a suggested summary,
-description and example for each operation, written for you, use:
-
-- the [Agentify API](https://latitude10.tech/products/agentify-api) kit
-  (`agentify improve`),
-- or the paid [readiness report](https://latitude10.tech/agent-readiness).
-
-Both are from [Latitude 10](https://latitude10.tech), which maintains this
-package.
+[Latitude 10](https://latitude10.tech) maintains this package. The same
+rules and fixes run in the hosted check at
+[latitude10.tech/agent-readiness](https://latitude10.tech/agent-readiness)
+and in the [Agentify API](https://latitude10.tech/products/agentify-api) kit.
 
 ## Contributing
 
