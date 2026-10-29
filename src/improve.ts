@@ -10,6 +10,7 @@
  * Deterministic and local: no model and no network.
  */
 import { guessOperationId } from "./operation-id.js";
+import { pointerSegment } from "./convert.js";
 import type { Manifest, ManifestTool, ToolSuggestions } from "./manifest.js";
 import { exampleArguments, exampleValue } from "./examples.js";
 
@@ -20,7 +21,7 @@ const AMBIGUOUS = /^(get|post|put|patch|delete|head|handler|handle|default|op|op
 function deref(doc: Json, v: any, depth = 0): any {
   if (depth > 10 || !v || typeof v !== "object" || typeof v.$ref !== "string" || !v.$ref.startsWith("#/")) return v;
   let cur: any = doc;
-  for (const p of v.$ref.slice(2).split("/")) cur = cur?.[p.replace(/~1/g, "/").replace(/~0/g, "~")];
+  for (const p of v.$ref.slice(2).split("/")) cur = cur?.[pointerSegment(p)];
   return deref(doc, cur, depth + 1);
 }
 

@@ -1,0 +1,102 @@
+name: OpenAPI agent readiness
+description: Score how well AI agents will use your API, 0-100, from its OpenAPI spec, and comment the score on pull requests.
+author: Latitude 10
+branding:
+  icon: check-circle
+  color: green
+
+inputs:
+  spec:
+    description: Path to the OpenAPI 3.0/3.1 document (JSON or YAML) in the repository, or its https URL.
+    required: true
+  min-score:
+    description: Fail the job when the score is below this (0-100). Empty reports only.
+    required: false
+    default: ""
+  comment:
+    description: "On pull requests, post the score, its change against the base branch and the top three findings as one comment, updated on each run. Needs `permissions: pull-requests: write`."
+    required: false
+    default: "true"
+  suggest-fixes:
+    description: Also write the rules-only fixes to `<name>.fixed.<ext>` next to the spec, and say in the summary how to apply them.
+    required: false
+    default: "false"
+  version:
+    description: The openapi-agent-check version to run (an npm version or spec).
+    required: false
+    default: "1.2.0"
+  token:
+    description: The token for the comment. The workflow's own GITHUB_TOKEN is enough.
+    required: false
+    default: ${{ github.token }}
+
+outputs:
+  score:
+    description: The spec's score, 0-100.
+    value: ${{ steps.check.outputs.score }}
+  base-score:
+    description: The spec's score on the base branch (pull requests only; empty when it couldn't be scored).
+    value: ${{ steps.base.outputs.score }}
+  fixed-spec:
+    description: Where the fixed spec was written (suggest-fixes only; empty when there was nothing to fix).
+    value: ${{ steps.fix.outputs.path }}
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+      with:
+        node-version: "22"
+
+    - id: check
+      shell: bash
+      env:
+        OAC_SPEC: ${{ inputs.spec }}
+        OAC_VERSION: ${{ inputs.version }}
+      run: |
+        npx --yes "openapi-agent-check@${OAC_VERSION}" "$OAC_SPEC" --json > "$RUNNER_TEMP/oac-head.json"
+        echo "score=$(node -p 'require(process.argv[1]).score' "$RUNNER_TEMP/oac-head.json")" >> "$GITHUB_OUTPUT"
+
+    - id: base
+      if: github.event_name == 'pull_request' || github.event_name == 'pull_request_target'
+      shell: bash
+      env:
+        OAC_SPEC: ${{ inputs.spec }}
+        OAC_VERSION: ${{ inputs.version }}
+        OAC_BASE_REF: ${{ github.base_ref }}
+      run: |
+        rm -f "$RUNNER_TEMP/oac-base.json"
+        case "$OAC_SPEC" in http://*|https://*) echo "The spec is a URL: no base branch to compare with."; exit 0 ;; esac
+        if ! git fetch --no-tags --depth=1 origin "$OAC_BASE_REF" 2>/dev/null; then echo "Couldn't fetch $OAC_BASE_REF."; exit 0; fi
+        name="$(basename "$OAC_SPEC")"
+        mkdir -p "$RUNNER_TEMP/oac-base"
+        if ! git show "FETCH_HEAD:./$OAC_SPEC" > "$RUNNER_TEMP/oac-base/$name" 2>/dev/null; then echo "$OAC_SPEC isn't on $OAC_BASE_REF."; exit 0; fi
+        if npx --yes "openapi-agent-check@${OAC_VERSION}" "$RUNNER_TEMP/oac-base/$name" --json > "$RUNNER_TEMP/oac-base.json"; then
+          echo "score=$(node -p 'require(process.argv[1]).score' "$RUNNER_TEMP/oac-base.json")" >> "$GITHUB_OUTPUT"
+        else
+          rm -f "$RUNNER_TEMP/oac-base.json"
+        fi
+
+    - id: fix
+      if: inputs.suggest-fixes == 'true'
+      shell: bash
+      env:
+        OAC_SPEC: ${{ inputs.spec }}
+        OAC_VERSION: ${{ inputs.version }}
+      run: |
+        out="$(npx --yes "openapi-agent-check@${OAC_VERSION}" "$OAC_SPEC" --fix)"
+        echo "$out"
+        echo "path=$(printf '%s\n' "$out" | sed -n 's/^Wrote //p')" >> "$GITHUB_OUTPUT"
+
+    - shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.token }}
+        OAC_HEAD_JSON: ${{ runner.temp }}/oac-head.json
+        OAC_BASE_JSON: ${{ runner.temp }}/oac-base.json
+        OAC_BASE_REF: ${{ github.base_ref }}
+        OAC_SPEC: ${{ inputs.spec }}
+        OAC_MIN_SCORE: ${{ inputs.min-score }}
+        OAC_COMMENT: ${{ inputs.comment }}
+        OAC_FIXED: ${{ steps.fix.outputs.path }}
+        OAC_VERSION: ${{ inputs.version }}
+      run: node "$GITHUB_ACTION_PATH/scripts/action-comment.mjs"

@@ -5,6 +5,8 @@ OpenAPI 3.0 or 3.1 spec and scores it from 0 to 100 against 13 rules. Each
 rule covers something a model gets wrong when the spec leaves it out, such as
 a missing operationId, a vague description or an undocumented error.
 
+<!-- The demo GIF goes here once it's recorded: `vhs docs/demo.tape` writes docs/demo.gif, then add ![openapi-agent-check scoring and fixing a spec](docs/demo.gif) -->
+
 ```sh
 npx openapi-agent-check ./openapi.json
 npx openapi-agent-check https://api.example.com/openapi.yaml
@@ -96,9 +98,10 @@ at all costs a lot.
 | Option | |
 |---|---|
 | `--json` | Print the full report as JSON: every rule, every finding |
+| `--quiet` | Print only the score line, `Agent readiness: 87/100` |
 | `--min <score>` | Exit with code 1 if the score is below `<score>` |
 | `--max <n>` | Show up to `n` findings per rule (default 5) |
-| `--badge` | Print a Markdown badge for the score |
+| `--badge` | Print a Markdown badge: live for an https URL, static for a file |
 | `--fix` | Write the fixed spec to `<name>.fixed.<ext>` |
 | `--fix --write` | Overwrite the input file with the fixed spec |
 | `--fix --patch` | Print the fixes as a JSON Patch instead |
@@ -110,15 +113,85 @@ Exit codes:
 - `1`: the score is below `--min`.
 - `2`: the spec couldn't be read or written, or the arguments are wrong.
 
+After the report, the CLI prints one line on what comes next:
+`Serve this API to agents: npx openapi-agentify init`. It's left out with
+`--json`, `--quiet` and `--badge`, and in CI (when `CI` is set, as GitHub
+Actions and most CI services do).
+
 ### In CI
 
 ```yaml
 - run: npx openapi-agent-check openapi.yaml --min 80
 ```
 
+## GitHub Action
+
+The Action scores your spec on every push and pull request. On a pull
+request it posts one comment with the score, its change against the base
+branch and the top three findings, and updates that same comment on each
+run.
+
+```yaml
+name: agent-readiness
+on: pull_request
+permissions:
+  contents: read
+  pull-requests: write # only for the comment
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jorgeortega/openapi-agent-check@v1
+        with:
+          spec: openapi.yaml
+          min-score: 80
+```
+
+| Input | Default | |
+|---|---|---|
+| `spec` | (required) | The spec's path in the repository, or its https URL |
+| `min-score` | none: report only | Fail the job when the score is below this |
+| `comment` | `true` | Comment on pull requests (needs `pull-requests: write`) |
+| `suggest-fixes` | `false` | Also write the rules-only fixes to `<name>.fixed.<ext>` next to the spec |
+| `version` | the release's own | The `openapi-agent-check` version to run |
+
+Outputs: `score`, `base-score` and `fixed-spec`.
+
+With `suggest-fixes: true`, the fixed spec is written into the job's
+workspace, and the comment and the job summary say how to apply it:
+run `npx openapi-agent-check <spec> --fix --write` and commit the result.
+The Action doesn't push commits or post review suggestions: what to change
+in your spec stays your call. A later step can upload or commit
+`steps.<id>.outputs.fixed-spec` if you want it to.
+
+The Action runs the pinned version from npm with `npx`. It needs no secrets,
+and it sends nothing anywhere: the score is computed in the job and the only
+API it calls is GitHub's, for the comment. A pull request from a fork gets a
+read-only token, so the comment is skipped with a warning and the check still
+runs.
+
 ## Badge
 
-`--badge` prints a Markdown badge with the score for your README:
+`--badge` prints a Markdown badge for your README. Which one depends on
+where the spec is.
+
+**A spec at a public https URL gets the live badge.** It follows the spec:
+shields.io asks latitude10.tech for the score, which scores the spec with
+these same rules and keeps the result for a day. It links to a free page
+with the score and each rule's findings for that URL.
+
+```sh
+npx openapi-agent-check https://api.example.com/openapi.json --badge
+```
+
+```md
+[![agent-ready](https://img.shields.io/endpoint?url=https%3A%2F%2Flatitude10.tech%2Fapi%2Freadiness%2Fbadge%3Furl%3Dhttps%253A%252F%252Fapi.example.com%252Fopenapi.json)](https://latitude10.tech/agent-readiness/check?url=https%3A%2F%2Fapi.example.com%2Fopenapi.json)
+```
+
+**A file gets a static badge** with today's score. Nothing is fetched to
+show it, and nothing about your spec leaves your machine; rerun the command
+(in CI, say) when the score changes.
 
 ```sh
 npx openapi-agent-check openapi.yaml --badge
@@ -128,9 +201,44 @@ npx openapi-agent-check openapi.yaml --badge
 [![agent-ready](https://img.shields.io/badge/agent--ready-87%2F100-green)](https://latitude10.tech/agent-readiness)
 ```
 
-It's green at 80 or more, yellow from 50 to 79 and red below 50. It's a
-static shields.io badge: rerun the command (in CI, say) when the score
-changes.
+Both are green at 80 or more, yellow from 50 to 79 and red below 50.
+
+## With Spectral
+
+If you already lint your spec with [Spectral](https://github.com/stoplightio/spectral),
+add the rules to your `.spectral.yaml`:
+
+```sh
+npm install --save-dev openapi-agent-check
+```
+
+```yaml
+extends:
+  - spectral:oas
+  - openapi-agent-check/spectral
+```
+
+```
+$ npx spectral lint openapi.json
+ 61:14    error  agent-ready-operation-ids    POST /v1/orders: no operationId        paths./v1/orders.post
+ 61:14  warning  agent-ready-idempotency      POST /v1/orders: no Idempotency-Key    paths./v1/orders.post
+```
+
+Each of the 13 rules is a Spectral rule named `agent-ready-<rule>`, running
+the same code as the CLI, so Spectral finds exactly what the CLI finds, each
+at the operation or parameter it's about. The rules weighted 8 or more
+(`operation-ids`, `descriptions`, `summaries`, `parameter-descriptions`,
+`response-schemas`, `security`) are errors; the rest are warnings. Change a
+rule's severity in your `.spectral.yaml` as with any other ruleset:
+
+```yaml
+rules:
+  agent-ready-idempotency: off
+```
+
+Spectral reports findings, not the 0-100 score; run the CLI for that.
+`@stoplight/spectral-core` is an optional peer dependency: the CLI doesn't
+need it.
 
 ## As a library
 
@@ -152,12 +260,13 @@ const { scoreBefore, scoreAfter, patch, fixed } = fix(doc!);
 an `id`, `title`, `weight`, `applicable`, `passing`, `share`, `fix` and its
 `findings`. Each finding has a `where` (`"METHOD /path"` or a parameter) and a
 `message`. `fix` also returns `operations`, the number of operations it
-changed; `badge(score)` returns the badge's Markdown.
+changed; `badge(score)` returns the static badge's Markdown and
+`liveBadge(specUrl)` the live one.
 
 ## Conformance fixtures
 
-The rules version is `1.0.3`. Scores only change when the rules version
-changes. `test/fixtures/` holds 24 OpenAPI documents with the exact report
+The rules version is `1.0.4`. Scores only change when the rules version
+changes. `test/fixtures/` holds 26 OpenAPI documents with the exact report
 each one must produce, plus a SHA-256 manifest so nobody can quietly edit
 them. If you port the rules to another language, your port conforms when it
 reproduces every `expected.json`. See [test/fixtures/README.md](test/fixtures/README.md).
@@ -176,17 +285,12 @@ extensions on operations, and an Agentify tool list (`agentify.tools.json`,
 the `manifest` option). This keeps its score identical to the Agentify kits'.
 Plain OpenAPI specs need neither.
 
-## Who maintains it
-
-[Latitude 10](https://latitude10.tech) maintains this package. The same
-rules and fixes run in the hosted check at
-[latitude10.tech/agent-readiness](https://latitude10.tech/agent-readiness)
-and in the [Agentify API](https://latitude10.tech/products/agentify-api) kit.
-
 ## Contributing
 
-Issues and pull requests are welcome. To change what a rule scores, update
-its fixtures and bump the rules version in the same pull request.
+Issues and pull requests are welcome. [CONTRIBUTING.md](CONTRIBUTING.md)
+covers the setup, the tests, and how the conformance fixtures and the rules
+version work; [docs/good-first-issues.md](docs/good-first-issues.md) has
+places to start.
 
 ```sh
 npm install
@@ -197,3 +301,14 @@ npm run build
 ## License
 
 [MIT](LICENSE) © 2026 October Moon LLC (Latitude 10)
+
+## Who maintains it
+
+[Latitude 10](https://latitude10.tech) maintains this package, and the same
+rules run in its free hosted check at
+[latitude10.tech/agent-readiness](https://latitude10.tech/agent-readiness) and
+in the [Agentify API](https://latitude10.tech/products/agentify-api) kit. If
+you'd rather not run anything yourself, the hosted
+[platform](https://latitude10.tech/platform) keeps every version of your spec,
+scores it on each push from CI and serves it to agents as an MCP server; this
+package stays free and MIT either way.

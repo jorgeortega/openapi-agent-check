@@ -1,0 +1,6 @@
+# Lints with the built ruleset (npm run build first):
+#   npx @stoplight/spectral-cli lint test/fixtures/cases/*/openapi.json --ruleset test/spectral/.spectral.yaml
+# In your own project, extend the package instead:
+#   extends: [openapi-agent-check/spectral]
+extends:
+  - ../../dist/spectral.js

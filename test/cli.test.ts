@@ -4,8 +4,8 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { parse as parseYaml } from "yaml";
-import { run } from "../src/cli.js";
-import { applyPatch } from "../src/index.js";
+import { POINTER_LINE, run } from "../src/cli.js";
+import { applyPatch, badgeColor, liveBadge } from "../src/index.js";
 
 const fixture = (name: string, file = "openapi.json") => fileURLToPath(new URL(`./fixtures/cases/${name}/${file}`, import.meta.url));
 
@@ -34,7 +34,7 @@ describe("the CLI", () => {
     const result = await run([fixture("good"), "--json"]);
     const report = JSON.parse(result.stdout);
     expect(report.score).toBe(100);
-    expect(report.rulesVersion).toBe("1.0.3");
+    expect(report.rulesVersion).toBe("1.0.4");
     expect(report.rules).toHaveLength(13);
   });
 
@@ -71,7 +71,8 @@ describe("the CLI", () => {
 
   it("prints help and versions", async () => {
     expect((await run(["--help"])).stdout).toContain("Usage: openapi-agent-check");
-    expect((await run(["--version"])).stdout).toMatch(/^openapi-agent-check 1\.1\.0 \(rules 1\.0\.3\)$/);
+    const { version } = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
+    expect((await run(["--version"])).stdout).toBe(`openapi-agent-check ${version} (rules 1.0.4)`);
   });
 
   it("prints a badge with --badge", async () => {
@@ -156,12 +157,73 @@ describe("the CLI's --fix", () => {
 
   it("exits 2 on flags that don't go together", async () => {
     const input = fixture("orders-thin");
-    for (const args of [["--write"], ["--patch"], ["--fix", "--write", "--patch"], ["--fix", "--json"], ["--fix", "--badge"], ["--fix", "--min", "80"], ["--json", "--badge"]]) {
+    for (const args of [["--write"], ["--patch"], ["--fix", "--write", "--patch"], ["--fix", "--json"], ["--fix", "--badge"], ["--fix", "--min", "80"], ["--json", "--badge"], ["--json", "--quiet"], ["--quiet", "--badge"], ["--fix", "--quiet"]]) {
       const result = await run([input, ...args]);
       expect(result.code, args.join(" ")).toBe(2);
       expect(result.stdout).toBe("");
     }
     expect((await run(["https://api.example.com/openapi.json", "--fix", "--write"])).stderr).toMatch(/not a URL/);
     expect((await run(["does-not-exist.json", "--fix"])).code).toBe(2);
+  });
+
+  describe("--badge", () => {
+    it("prints a static badge for a file", async () => {
+      const result = await run([fixture("good"), "--badge"]);
+      expect(result.stdout).toBe("[![agent-ready](https://img.shields.io/badge/agent--ready-100%2F100-green)](https://latitude10.tech/agent-readiness)");
+    });
+
+    it("prints the live badge for an https URL", async () => {
+      const spec = readFileSync(fixture("good"), "utf8");
+      const fetcher = (async () => new Response(spec, { status: 200 })) as typeof fetch;
+      const url = "https://api.example.com/v1/openapi.json?v=2&x=a b";
+      const result = await run([url, "--badge"], { fetcher });
+      const e2 = encodeURIComponent(url);
+      const e1 = encodeURIComponent(`https://latitude10.tech/api/readiness/badge?url=${e2}`);
+      expect(result.stdout).toBe(`[![agent-ready](https://img.shields.io/endpoint?url=${e1})](https://latitude10.tech/agent-readiness/check?url=${e2})`);
+      expect(result.stdout).toBe(liveBadge(url));
+    });
+
+    it("keeps the static badge for a plain http URL", async () => {
+      const spec = readFileSync(fixture("good"), "utf8");
+      const fetcher = (async () => new Response(spec, { status: 200 })) as typeof fetch;
+      expect((await run(["http://localhost:3000/openapi.json", "--badge"], { fetcher })).stdout).toContain("img.shields.io/badge/");
+    });
+
+    it("colours by score: green from 80, yellow from 50, red below", () => {
+      expect([100, 80, 79, 50, 49, 0].map(badgeColor)).toEqual(["green", "green", "yellow", "yellow", "red", "red"]);
+    });
+  });
+
+  describe("the pointer line", () => {
+    const local = { env: {} };
+    it("ends a report with what comes next", async () => {
+      const result = await run([fixture("orders-thin")], local);
+      expect(POINTER_LINE).toBe("Serve this API to agents: npx openapi-agentify init");
+      expect(result.stdout.endsWith(`\n\n${POINTER_LINE}`)).toBe(true);
+      expect(result.stdout.split(POINTER_LINE)).toHaveLength(2);
+    });
+
+    it("is left out with --json", async () => {
+      const result = await run([fixture("orders-thin"), "--json"], local);
+      expect(result.stdout).not.toContain("openapi-agentify");
+      expect(() => JSON.parse(result.stdout)).not.toThrow();
+    });
+
+    it("is left out with --quiet, which prints only the score line", async () => {
+      const result = await run([fixture("good"), "--quiet"], local);
+      expect(result).toEqual({ code: 0, stdout: "Agent readiness: 100/100", stderr: "" });
+      const low = await run([fixture("orders-thin"), "--quiet", "--min", "90"], local);
+      expect(low.code).toBe(1);
+      expect(low.stdout).not.toContain("openapi-agentify");
+    });
+
+    it("is left out in CI", async () => {
+      for (const CI of ["true", "1", "TRUE"]) expect((await run([fixture("orders-thin")], { env: { CI } })).stdout).not.toContain("openapi-agentify");
+      for (const CI of ["false", "0", ""]) expect((await run([fixture("orders-thin")], { env: { CI } })).stdout).toContain(POINTER_LINE);
+    });
+
+    it("is left out of the badge", async () => {
+      expect((await run([fixture("good"), "--badge"], local)).stdout).not.toContain("openapi-agentify");
+    });
   });
 });
