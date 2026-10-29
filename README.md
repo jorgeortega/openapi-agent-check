@@ -5,6 +5,8 @@ OpenAPI 3.0 or 3.1 spec and scores it from 0 to 100 against 13 rules. Each
 rule covers something a model gets wrong when the spec leaves it out, such as
 a missing operationId, a vague description or an undocumented error.
 
+<!-- The demo GIF goes here once it's recorded: `vhs docs/demo.tape` writes docs/demo.gif, then add ![openapi-agent-check scoring and fixing a spec](docs/demo.gif) -->
+
 ```sh
 npx openapi-agent-check ./openapi.json
 npx openapi-agent-check https://api.example.com/openapi.yaml
@@ -283,17 +285,12 @@ extensions on operations, and an Agentify tool list (`agentify.tools.json`,
 the `manifest` option). This keeps its score identical to the Agentify kits'.
 Plain OpenAPI specs need neither.
 
-## Who maintains it
-
-[Latitude 10](https://latitude10.tech) maintains this package. The same
-rules and fixes run in the hosted check at
-[latitude10.tech/agent-readiness](https://latitude10.tech/agent-readiness)
-and in the [Agentify API](https://latitude10.tech/products/agentify-api) kit.
-
 ## Contributing
 
-Issues and pull requests are welcome. To change what a rule scores, update
-its fixtures and bump the rules version in the same pull request.
+Issues and pull requests are welcome. [CONTRIBUTING.md](CONTRIBUTING.md)
+covers the setup, the tests, and how the conformance fixtures and the rules
+version work; [docs/good-first-issues.md](docs/good-first-issues.md) has
+places to start.
 
 ```sh
 npm install
@@ -304,3 +301,14 @@ npm run build
 ## License
 
 [MIT](LICENSE) © 2026 October Moon LLC (Latitude 10)
+
+## Who maintains it
+
+[Latitude 10](https://latitude10.tech) maintains this package, and the same
+rules run in its free hosted check at
+[latitude10.tech/agent-readiness](https://latitude10.tech/agent-readiness) and
+in the [Agentify API](https://latitude10.tech/products/agentify-api) kit. If
+you'd rather not run anything yourself, the hosted
+[platform](https://latitude10.tech/platform) keeps every version of your spec,
+scores it on each push from CI and serves it to agents as an MCP server; this
+package stays free and MIT either way.

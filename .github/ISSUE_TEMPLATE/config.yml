@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Try the hosted check
+    url: https://latitude10.tech/agent-readiness
+    about: Paste a spec URL and see its score and findings in the browser.
