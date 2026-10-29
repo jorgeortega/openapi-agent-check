@@ -96,6 +96,7 @@ at all costs a lot.
 | Option | |
 |---|---|
 | `--json` | Print the full report as JSON: every rule, every finding |
+| `--quiet` | Print only the score line, `Agent readiness: 87/100` |
 | `--min <score>` | Exit with code 1 if the score is below `<score>` |
 | `--max <n>` | Show up to `n` findings per rule (default 5) |
 | `--badge` | Print a Markdown badge for the score |
@@ -109,6 +110,11 @@ Exit codes:
 - `0`: the spec was scored and met `--min`, or fixed.
 - `1`: the score is below `--min`.
 - `2`: the spec couldn't be read or written, or the arguments are wrong.
+
+After the report, the CLI prints one line on what comes next:
+`Serve this API to agents: npx openapi-agentify init`. It's left out with
+`--json`, `--quiet` and `--badge`, and in CI (when `CI` is set, as GitHub
+Actions and most CI services do).
 
 ### In CI
 

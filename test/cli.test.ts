@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { parse as parseYaml } from "yaml";
-import { run } from "../src/cli.js";
+import { POINTER_LINE, run } from "../src/cli.js";
 import { applyPatch } from "../src/index.js";
 
 const fixture = (name: string, file = "openapi.json") => fileURLToPath(new URL(`./fixtures/cases/${name}/${file}`, import.meta.url));
@@ -157,12 +157,45 @@ describe("the CLI's --fix", () => {
 
   it("exits 2 on flags that don't go together", async () => {
     const input = fixture("orders-thin");
-    for (const args of [["--write"], ["--patch"], ["--fix", "--write", "--patch"], ["--fix", "--json"], ["--fix", "--badge"], ["--fix", "--min", "80"], ["--json", "--badge"]]) {
+    for (const args of [["--write"], ["--patch"], ["--fix", "--write", "--patch"], ["--fix", "--json"], ["--fix", "--badge"], ["--fix", "--min", "80"], ["--json", "--badge"], ["--json", "--quiet"], ["--quiet", "--badge"], ["--fix", "--quiet"]]) {
       const result = await run([input, ...args]);
       expect(result.code, args.join(" ")).toBe(2);
       expect(result.stdout).toBe("");
     }
     expect((await run(["https://api.example.com/openapi.json", "--fix", "--write"])).stderr).toMatch(/not a URL/);
     expect((await run(["does-not-exist.json", "--fix"])).code).toBe(2);
+  });
+
+  describe("the pointer line", () => {
+    const local = { env: {} };
+    it("ends a report with what comes next", async () => {
+      const result = await run([fixture("orders-thin")], local);
+      expect(POINTER_LINE).toBe("Serve this API to agents: npx openapi-agentify init");
+      expect(result.stdout.endsWith(`\n\n${POINTER_LINE}`)).toBe(true);
+      expect(result.stdout.split(POINTER_LINE)).toHaveLength(2);
+    });
+
+    it("is left out with --json", async () => {
+      const result = await run([fixture("orders-thin"), "--json"], local);
+      expect(result.stdout).not.toContain("openapi-agentify");
+      expect(() => JSON.parse(result.stdout)).not.toThrow();
+    });
+
+    it("is left out with --quiet, which prints only the score line", async () => {
+      const result = await run([fixture("good"), "--quiet"], local);
+      expect(result).toEqual({ code: 0, stdout: "Agent readiness: 100/100", stderr: "" });
+      const low = await run([fixture("orders-thin"), "--quiet", "--min", "90"], local);
+      expect(low.code).toBe(1);
+      expect(low.stdout).not.toContain("openapi-agentify");
+    });
+
+    it("is left out in CI", async () => {
+      for (const CI of ["true", "1", "TRUE"]) expect((await run([fixture("orders-thin")], { env: { CI } })).stdout).not.toContain("openapi-agentify");
+      for (const CI of ["false", "0", ""]) expect((await run([fixture("orders-thin")], { env: { CI } })).stdout).toContain(POINTER_LINE);
+    });
+
+    it("is left out of the badge", async () => {
+      expect((await run([fixture("good"), "--badge"], local)).stdout).not.toContain("openapi-agentify");
+    });
   });
 });

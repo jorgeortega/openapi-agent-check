@@ -1,5 +1,5 @@
 /**
- * openapi-agent-check <file|url> [--json] [--min <score>] [--max <n>] [--badge]
+ * openapi-agent-check <file|url> [--json | --quiet | --badge] [--min <score>] [--max <n>]
  * openapi-agent-check <file|url> --fix [--write | --patch]
  *
  * Exit codes: 0 the spec was scored (and met --min) or fixed, 1 the score is
@@ -16,6 +16,7 @@ Scores how well AI agents will use your API, 0-100, over 13 rules.
 
 Options:
   --json         print the full report as JSON
+  --quiet        print only the score line
   --min <score>  exit with code 1 when the score is below <score> (for CI)
   --max <n>      findings to show per rule (default 5)
   --badge        print a Markdown badge for the score
@@ -36,6 +37,17 @@ export interface RunOptions {
   fetcher?: typeof fetch;
   /** Where `--fix` writes the fixed copy of a spec read from a URL (default: the current directory). */
   cwd?: string;
+  /** The environment, for `CI` (default: process.env). */
+  env?: Record<string, string | undefined>;
+}
+
+/** The one line after a report that says what comes next. */
+export const POINTER_LINE = "Serve this API to agents: npx openapi-agentify init";
+
+/** True when CI is set to anything but "", "0" or "false" (GitHub Actions, GitLab and most others set CI=true). */
+export function inCi(env: Record<string, string | undefined>): boolean {
+  const value = (env.CI ?? "").trim().toLowerCase();
+  return value !== "" && value !== "0" && value !== "false";
 }
 
 function packageVersion(): string {
@@ -101,6 +113,7 @@ export async function run(argv: string[], opts: RunOptions = {}): Promise<CliRes
     return { code: 0, stdout: `openapi-agent-check ${packageVersion()} (rules ${RULES_VERSION})`, stderr: "" };
   }
   const json = flag(args, "--json");
+  const quiet = flag(args, "--quiet");
   const showBadge = flag(args, "--badge");
   const doFix = flag(args, "--fix");
   const write = flag(args, "--write");
@@ -113,12 +126,12 @@ export async function run(argv: string[], opts: RunOptions = {}): Promise<CliRes
   if (unknown) return { code: 2, stdout: "", stderr: `Unknown option ${unknown}.\n\n${USAGE}` };
   if (args.length !== 1) return { code: 2, stdout: "", stderr: USAGE };
   if ((write || patch) && !doFix) return { code: 2, stdout: "", stderr: `${write ? "--write" : "--patch"} only goes with --fix.` };
-  if (doFix && (json || showBadge || min !== undefined || max !== undefined)) {
-    return { code: 2, stdout: "", stderr: "--fix doesn't combine with --json, --badge, --min or --max: fix first, then check the fixed spec." };
+  if (doFix && (json || quiet || showBadge || min !== undefined || max !== undefined)) {
+    return { code: 2, stdout: "", stderr: "--fix doesn't combine with --json, --quiet, --badge, --min or --max: fix first, then check the fixed spec." };
   }
   if (write && patch) return { code: 2, stdout: "", stderr: "Choose one of --write and --patch." };
   if (write && isUrl(args[0]!)) return { code: 2, stdout: "", stderr: "--write overwrites a local file, not a URL. Use --fix alone to write a fixed copy here." };
-  if (json && showBadge) return { code: 2, stdout: "", stderr: "Choose one of --json and --badge." };
+  if ([json, quiet, showBadge].filter(Boolean).length > 1) return { code: 2, stdout: "", stderr: "Choose one of --json, --quiet and --badge." };
 
   if (doFix) return runFix(args[0]!, { write, patch }, opts);
 
@@ -126,11 +139,14 @@ export async function run(argv: string[], opts: RunOptions = {}): Promise<CliRes
   if (result.error) return { code: 2, stdout: "", stderr: result.error };
   const report = result.report!;
   const below = min !== undefined && report.score < min;
+  const pointer = inCi(opts.env ?? process.env) ? "" : `\n\n${POINTER_LINE}`;
   const stdout = json
     ? JSON.stringify({ source: result.source, rulesVersion: RULES_VERSION, ...report }, null, 2)
     : showBadge
       ? badge(report.score)
-      : formatReport(report, { color: opts.color, max });
+      : quiet
+        ? `Agent readiness: ${report.score}/100`
+        : formatReport(report, { color: opts.color, max }) + pointer;
   const stderr = below ? `Score ${report.score} is below the minimum of ${min}.` : "";
   return { code: below ? 1 : 0, stdout, stderr };
 }
