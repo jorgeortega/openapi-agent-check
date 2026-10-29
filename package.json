@@ -1,21 +1,45 @@
 {
   "name": "openapi-agent-check",
-  "version": "1.0.0",
-  "description": "Score how well AI agents will use your API, 0-100, from its OpenAPI 3.0/3.1 spec: 13 rules for operationIds, descriptions, parameters, examples, schemas, errors, pagination, auth, idempotency and tool count.",
-  "keywords": ["openapi", "ai-agents", "mcp", "llm", "tool-calling", "api", "lint", "agent-readiness"],
+  "version": "1.1.0",
+  "description": "Score how well AI agents will use your API, 0-100, from its OpenAPI 3.0/3.1 spec: 13 rules for operationIds, descriptions, parameters, examples, schemas, errors, pagination, auth, idempotency and tool count. --fix writes the rules-only fixes into your spec.",
+  "keywords": [
+    "openapi",
+    "ai-agents",
+    "mcp",
+    "llm",
+    "tool-calling",
+    "api",
+    "lint",
+    "agent-readiness"
+  ],
   "homepage": "https://github.com/jorgeortega/openapi-agent-check#readme",
-  "repository": { "type": "git", "url": "git+https://github.com/jorgeortega/openapi-agent-check.git" },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jorgeortega/openapi-agent-check.git"
+  },
   "bugs": "https://github.com/jorgeortega/openapi-agent-check/issues",
   "license": "MIT",
   "author": "Latitude 10 (October Moon LLC) <info@latitude10.tech> (https://latitude10.tech)",
   "type": "module",
   "exports": {
-    ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" }
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
   },
   "types": "./dist/index.d.ts",
-  "bin": { "openapi-agent-check": "dist/bin.js" },
-  "files": ["dist", "README.md", "LICENSE", "CHANGELOG.md"],
-  "engines": { "node": ">=20" },
+  "bin": {
+    "openapi-agent-check": "dist/bin.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "build": "rm -rf dist && tsc -p tsconfig.build.json && chmod +x dist/bin.js",
     "typecheck": "tsc --noEmit",
